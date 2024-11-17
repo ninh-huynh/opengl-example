@@ -9,6 +9,7 @@ import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.opengl.Matrix
 import android.os.Bundle
+import android.util.Log
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
@@ -108,12 +109,13 @@ class OpenGL3Activity: AppCompatActivity(),
         // we pass to our shaders
         uMVPMatrix = GLES30.glGetUniformLocation(iProgId, "uMVPMatrix")
 
+        // 1080, 2400
         val vertices = floatArrayOf(
-            // position     // texture coords
-            -1f, -1f, 1f,   0f, 0f,   // bottom left
-             1f, -1f, 1f,   1f, 0f,   // bottom right
-            -1f,  1f, 1f,   0f, 1f,   // top left
-             1f,  1f, 1f,   1f, 1f,   // top right
+            // position         // texture coords
+               0f,    0f, 1f,   0f, 0f,   // bottom left
+             282f,    0f, 1f,   1f, 0f,   // bottom right
+               0f,  333f, 1f,   0f, 1f,   // top left
+             282f,  333f, 1f,   1f, 1f,   // top right
         )
 
         val verticesBuffer: FloatBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
@@ -163,12 +165,16 @@ class OpenGL3Activity: AppCompatActivity(),
 
     override fun onSurfaceChanged(gl10: GL10?, width: Int, height: Int) {
         GLES30.glViewport(0, 0, width, height)
+        Log.d("OpenGL3Activity", "onSurfaceChanged: $width, $height")   // 1080, 2400
 
         // OpenGL will stretch what we give it into a square. To avoid this, we have to send the ratio
         // information to the VERTEX_SHADER. In our case, we pass this information (with other) in the
         // MVP Matrix as can be seen in the onDrawFrame method.
         val ratio = width.toFloat() / height
-        Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, 3f, 7f)
+//        Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, 3f, 7f)
+//        Matrix.frustumM(projectionMatrix, 0, 0f, width.toFloat(), 0f, height.toFloat(), 3f, 7f)
+        Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), 0f, height.toFloat(), 3f, 7f)
+//        Matrix.perspectiveM()
 
         // Since we requested our OpenGL thread to only render when dirty, we have to tell it to.
         view!!.requestRender()
@@ -182,7 +188,7 @@ class OpenGL3Activity: AppCompatActivity(),
         // Using matrices, we set the camera at the center, advanced of 7 looking to the center back
         // of -1
         Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 7f, 0f, 0f, -1f, 0f, 1f, 0f)
-        // We combine the scene setup we have done in onSurfaceChanged with the camera setup
+//         We combine the scene setup we have done in onSurfaceChanged with the camera setup
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
         // We combile that with the applied rotation
         Matrix.multiplyMM(mvpMatrix, 0, mvpMatrix, 0, rotationMatrix, 0)
@@ -214,10 +220,10 @@ class OpenGL3Activity: AppCompatActivity(),
 
                 MotionEvent.ACTION_MOVE -> {
                     if (previousX != motionEvent.x) {
-                        Matrix.rotateM(rotationMatrix, 0, motionEvent.x - previousX, 0f, 1f, 0f)
+//                        Matrix.rotateM(rotationMatrix, 0, motionEvent.x - previousX, 0f, 1f, 0f)
                     }
                     if (previousY != motionEvent.y) {
-                        Matrix.rotateM(rotationMatrix, 0, motionEvent.y - previousY, 1f, 0f, 0f)
+//                        Matrix.rotateM(rotationMatrix, 0, motionEvent.y - previousY, 1f, 0f, 0f)
                     }
                     this.view!!.requestRender()
                     previousX = motionEvent.x
