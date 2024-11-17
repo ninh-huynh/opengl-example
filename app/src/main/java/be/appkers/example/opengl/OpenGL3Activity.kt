@@ -29,8 +29,6 @@ class OpenGL3Activity: AppCompatActivity(),
     View.OnTouchListener,
     ScaleGestureDetector.OnScaleGestureListener
 {
-    val MVP_MATRIX = "uMVPMatrix"
-
     // region Variables
     private var view: GLSurfaceView? = null
     private var uMVPMatrix = 0
@@ -108,7 +106,7 @@ class OpenGL3Activity: AppCompatActivity(),
 
         // Now that our program is loaded and in use, we'll retrieve the handles of the parameters
         // we pass to our shaders
-        uMVPMatrix = GLES30.glGetUniformLocation(iProgId, MVP_MATRIX)
+        uMVPMatrix = GLES30.glGetUniformLocation(iProgId, "uMVPMatrix")
 
         val vertices = floatArrayOf(
             // position     // texture coords
