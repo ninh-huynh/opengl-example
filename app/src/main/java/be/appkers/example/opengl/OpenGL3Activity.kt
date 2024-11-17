@@ -39,6 +39,7 @@ class OpenGL3Activity: AppCompatActivity(),
     private val projectionMatrix = FloatArray(16)
     private val viewMatrix = FloatArray(16)
     private val rotationMatrix = FloatArray(16)
+    private val modelMatrix = FloatArray(16)
 
 
     // endregion Variables
@@ -112,10 +113,10 @@ class OpenGL3Activity: AppCompatActivity(),
         // 1080, 2400
         val vertices = floatArrayOf(
             // position         // texture coords
-               0f,    0f, 1f,   0f, 0f,   // bottom left
-             282f,    0f, 1f,   1f, 0f,   // bottom right
-               0f,  333f, 1f,   0f, 1f,   // top left
-             282f,  333f, 1f,   1f, 1f,   // top right
+                 0f,   0f, 1f,   0f, 0f,   // bottom left
+               282f,   0f, 1f,   1f, 0f,   // bottom right
+                 0f, 333f, 1f,   0f, 1f,   // top left
+               282f, 333f, 1f,   1f, 1f,   // top right
         )
 
         val verticesBuffer: FloatBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
@@ -185,15 +186,28 @@ class OpenGL3Activity: AppCompatActivity(),
         // onSurfaceCreated, now is the time to ask OpenGL to clear the screen with this color
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
 
+        Matrix.setIdentityM(mvpMatrix, 0)
+        Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.translateM(modelMatrix, 0,
+            1080 / 2f - 282 / 2f,
+            2400 / 2f - 333 / 2,
+            0f
+        )
+
+        Matrix.multiplyMM(mvpMatrix, 0, modelMatrix, 0, mvpMatrix, 0)
+
         // Using matrices, we set the camera at the center, advanced of 7 looking to the center back
         // of -1
         Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 7f, 0f, 0f, -1f, 0f, 1f, 0f)
+        Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, mvpMatrix, 0)
+        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, mvpMatrix, 0)
+
 //         We combine the scene setup we have done in onSurfaceChanged with the camera setup
-        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
+//        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
         // We combile that with the applied rotation
-        Matrix.multiplyMM(mvpMatrix, 0, mvpMatrix, 0, rotationMatrix, 0)
+//        Matrix.multiplyMM(mvpMatrix, 0, mvpMatrix, 0, rotationMatrix, 0)
         // Finally, we apply the scale to our Matrix
-        Matrix.scaleM(mvpMatrix, 0, scale, scale, scale)
+//        Matrix.scaleM(mvpMatrix, 0, scale, scale, scale)
         // We attach the float array containing our Matrix to the correct handle
         GLES30.glUniformMatrix4fv(uMVPMatrix, 1, false, mvpMatrix, 0)
 
