@@ -113,10 +113,10 @@ class OpenGL3Activity: AppCompatActivity(),
         // 1080, 2400
         val vertices = floatArrayOf(
             // position         // texture coords
-                 0f,   0f, 1f,   0f, 0f,   // bottom left
-               282f,   0f, 1f,   1f, 0f,   // bottom right
-                 0f, 333f, 1f,   0f, 1f,   // top left
-               282f, 333f, 1f,   1f, 1f,   // top right
+                 0f, 333f, 1f,   0f, 0f,   // bottom left
+               282f, 333f, 1f,   1f, 0f,   // bottom right
+                 0f,   0f, 1f,   0f, 1f,   // top left
+               282f,   0f, 1f,   1f, 1f,   // top right
         )
 
         val verticesBuffer: FloatBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
@@ -174,7 +174,7 @@ class OpenGL3Activity: AppCompatActivity(),
         val ratio = width.toFloat() / height
 //        Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, 3f, 7f)
 //        Matrix.frustumM(projectionMatrix, 0, 0f, width.toFloat(), 0f, height.toFloat(), 3f, 7f)
-        Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), 0f, height.toFloat(), 3f, 7f)
+        Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), height.toFloat(), 0f, 3f, 7f)
 //        Matrix.perspectiveM()
 
         // Since we requested our OpenGL thread to only render when dirty, we have to tell it to.
