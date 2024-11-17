@@ -19,6 +19,7 @@ import java.io.InputStreamReader
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.nio.IntBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -28,29 +29,8 @@ class OpenGL3Activity: AppCompatActivity(),
     View.OnTouchListener,
     ScaleGestureDetector.OnScaleGestureListener
 {
-
     val MVP_MATRIX = "uMVPMatrix"
 
-    val POSITION_MATRIX: FloatArray = floatArrayOf(
-        -1f, -1f, 1f,  // X1,Y1,Z1 - bottom left
-        1f, -1f, 1f,  // X2,Y2,Z2 - bottom right
-        -1f, 1f, 1f,  // X3,Y3,Z3 - top left
-        1f, 1f, 1f,  // X4,Y4,Z4 - top right
-    )
-    private val positionBuffer: FloatBuffer = ByteBuffer.allocateDirect(POSITION_MATRIX.size * 4)
-        .order(ByteOrder.nativeOrder()).asFloatBuffer().put(POSITION_MATRIX)
-
-    val TEXTURE_COORDS: FloatArray = floatArrayOf(
-        0f, 0f,  // bottom left
-        1f, 0f,  // bottom right
-        0f, 1f,  // top left
-        1f, 1f,  // top right
-    )
-    private val textureCoordsBuffer: FloatBuffer =
-        ByteBuffer.allocateDirect(TEXTURE_COORDS.size * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer().put(TEXTURE_COORDS)
-
-    // endregion Shaders
     // region Variables
     private var view: GLSurfaceView? = null
     private var uMVPMatrix = 0
@@ -90,9 +70,13 @@ class OpenGL3Activity: AppCompatActivity(),
         view!!.onPause()
     }
 
-
     // endregion LifeCycle
+
     // region GLSurfaceView.Renderer
+    var vbo = 0
+    var vao = 0
+    var ebo = 0
+
     override fun onSurfaceCreated(gl10: GL10?, eglConfig: EGLConfig?) {
         // A little bit of initialization
         GLES30.glClearColor(0f, 0f, 0f, 0f)
@@ -125,6 +109,58 @@ class OpenGL3Activity: AppCompatActivity(),
         // Now that our program is loaded and in use, we'll retrieve the handles of the parameters
         // we pass to our shaders
         uMVPMatrix = GLES30.glGetUniformLocation(iProgId, MVP_MATRIX)
+
+        val vertices = floatArrayOf(
+            // position     // texture coords
+            -1f, -1f, 1f,   0f, 0f,   // bottom left
+             1f, -1f, 1f,   1f, 0f,   // bottom right
+            -1f,  1f, 1f,   0f, 1f,   // top left
+             1f,  1f, 1f,   1f, 1f,   // top right
+        )
+
+        val verticesBuffer: FloatBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
+            .order(ByteOrder.nativeOrder())
+            .asFloatBuffer()
+            .put(vertices)
+
+        val indices = intArrayOf(
+            0, 1, 2, 3
+        )
+
+        val indicesBuffer: IntBuffer = ByteBuffer.allocateDirect(indices.size * 4)
+            .order(ByteOrder.nativeOrder())
+            .asIntBuffer()
+            .put(indices)
+
+        val tempArr = intArrayOf(0)
+
+        GLES30.glGenVertexArrays(1, tempArr, 0)
+        vao = tempArr[0]
+        GLES30.glGenBuffers(1, tempArr, 0)
+        vbo = tempArr[0]
+        GLES30.glGenBuffers(1, tempArr, 0)
+        ebo = tempArr[0]
+
+        GLES30.glBindVertexArray(vao)
+
+        GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo)
+        verticesBuffer.position(0)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, vertices.size * 4, verticesBuffer, GLES30.GL_STATIC_DRAW)
+
+        GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, ebo)
+        indicesBuffer.position(0)
+        GLES30.glBufferData(GLES30.GL_ELEMENT_ARRAY_BUFFER, indices.size * 4, indicesBuffer, GLES30.GL_STATIC_DRAW)
+
+        // position attribute
+        GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 5 * 4, 0)
+        GLES30.glEnableVertexAttribArray(0)
+        // texture coord attribute
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 5 * 4, 3 * 4)
+        GLES30.glEnableVertexAttribArray(1)
+
+        // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+        // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+//        GLES30.glBindVertexArray(0)
     }
 
     override fun onSurfaceChanged(gl10: GL10?, width: Int, height: Int) {
@@ -157,28 +193,10 @@ class OpenGL3Activity: AppCompatActivity(),
         // We attach the float array containing our Matrix to the correct handle
         GLES30.glUniformMatrix4fv(uMVPMatrix, 1, false, mvpMatrix, 0)
 
-        // We pass the buffer for the position
-        positionBuffer.position(0)
-        GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 0, positionBuffer)
-        GLES30.glEnableVertexAttribArray(0)
-
-        // We pass the buffer for the texture position
-        textureCoordsBuffer.position(0)
-        GLES30.glVertexAttribPointer(
-            1,
-            2,
-            GLES30.GL_FLOAT,
-            false,
-            0,
-            textureCoordsBuffer
-        )
-        GLES30.glEnableVertexAttribArray(1)
+        GLES30.glBindVertexArray(vao)
 
         // We draw our square which will represent our logo
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
-
-        GLES30.glDisableVertexAttribArray(0)
-        GLES30.glDisableVertexAttribArray(1)
     }
 
 
