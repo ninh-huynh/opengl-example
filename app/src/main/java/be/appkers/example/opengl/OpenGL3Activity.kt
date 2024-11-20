@@ -113,10 +113,10 @@ class OpenGL3Activity: AppCompatActivity(),
         // 1080, 2400
         val vertices = floatArrayOf(
             // position         // texture coords
-                 0f, 333f, 1f,   0f, 0f,   // bottom left
-               282f, 333f, 1f,   1f, 0f,   // bottom right
-                 0f,   0f, 1f,   0f, 1f,   // top left
-               282f,   0f, 1f,   1f, 1f,   // top right
+                 0f, 1f, 1f,   0f, 0f,   // bottom left
+                 1f, 1f, 1f,   1f, 0f,   // bottom right
+                 0f, 0f, 1f,   0f, 1f,   // top left
+                 1f, 0f, 1f,   1f, 1f,   // top right
         )
 
         val verticesBuffer: FloatBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
@@ -174,7 +174,7 @@ class OpenGL3Activity: AppCompatActivity(),
         val ratio = width.toFloat() / height
 //        Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, 3f, 7f)
 //        Matrix.frustumM(projectionMatrix, 0, 0f, width.toFloat(), 0f, height.toFloat(), 3f, 7f)
-        Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), height.toFloat(), 0f, 3f, 7f)
+        Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), height.toFloat(), 0f, -1f, 1f)
 //        Matrix.perspectiveM()
 
         // Since we requested our OpenGL thread to only render when dirty, we have to tell it to.
@@ -188,18 +188,24 @@ class OpenGL3Activity: AppCompatActivity(),
 
         Matrix.setIdentityM(mvpMatrix, 0)
         Matrix.setIdentityM(modelMatrix, 0)
-        Matrix.translateM(modelMatrix, 0,
-            1080 / 2f - 282 / 2f,
-            2400 / 2f - 333 / 2,
-            0f
+//        Matrix.translateM(modelMatrix, 0,
+//            1080 / 2f - 282 / 2f,
+//            2400 / 2f - 333 / 2,
+//            0f
+//        )
+        Matrix.scaleM(modelMatrix, 0,
+            282f,
+            333f,
+            1f,
         )
 
         Matrix.multiplyMM(mvpMatrix, 0, modelMatrix, 0, mvpMatrix, 0)
 
         // Using matrices, we set the camera at the center, advanced of 7 looking to the center back
         // of -1
-        Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 7f, 0f, 0f, -1f, 0f, 1f, 0f)
-        Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, mvpMatrix, 0)
+        Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 1f, 0f, 0f, -1f, 0f, 1f, 0f)
+//        Matrix.setIdentityM(viewMatrix, 0)
+//        Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, mvpMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, mvpMatrix, 0)
 
 //         We combine the scene setup we have done in onSurfaceChanged with the camera setup
