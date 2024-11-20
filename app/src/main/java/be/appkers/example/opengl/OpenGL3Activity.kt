@@ -40,7 +40,11 @@ class OpenGL3Activity: AppCompatActivity(),
     private val viewMatrix = FloatArray(16)
     private val rotationMatrix = FloatArray(16)
     private val modelMatrix = FloatArray(16)
-
+    private var bitmapWidth = 0
+    private var bitmapHeight = 0
+    private var bitmapScale = 1f
+    private var surfaceWidth = 0f
+    private var surfaceHeight = 0f
 
     // endregion Variables
     // region LifeCycle
@@ -84,6 +88,8 @@ class OpenGL3Activity: AppCompatActivity(),
 
         // First, we load the picture into a texture that OpenGL will be able to use
         val bitmap = loadBitmapFromAssets()
+        bitmapWidth = bitmap.width
+        bitmapHeight = bitmap.height
         val texture = createFBOTexture(bitmap.width, bitmap.height)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
         GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bitmap)
@@ -179,6 +185,9 @@ class OpenGL3Activity: AppCompatActivity(),
 
         // Since we requested our OpenGL thread to only render when dirty, we have to tell it to.
         view!!.requestRender()
+
+        surfaceWidth = width.toFloat()
+        surfaceHeight = height.toFloat()
     }
 
     override fun onDrawFrame(gl10: GL10?) {
@@ -188,14 +197,30 @@ class OpenGL3Activity: AppCompatActivity(),
 
         Matrix.setIdentityM(mvpMatrix, 0)
         Matrix.setIdentityM(modelMatrix, 0)
-//        Matrix.translateM(modelMatrix, 0,
-//            1080 / 2f - 282 / 2f,
-//            2400 / 2f - 333 / 2,
-//            0f
-//        )
+
+        val positionX = surfaceWidth / 2
+        val positionY = surfaceHeight / 2
+
+        val finalBitmapWidth = bitmapWidth * bitmapScale * 1f
+        val finalBitmapHeight = bitmapHeight * bitmapScale * 1f
+
+        // change the origin of bitmap from top left to center
+        Matrix.translateM(modelMatrix, 0,
+            - finalBitmapWidth / 2f,
+            - finalBitmapHeight / 2f,
+            0f
+        )
+
+        Matrix.translateM(
+            modelMatrix, 0,
+            positionX,
+            positionY,
+            0f
+        )
+
         Matrix.scaleM(modelMatrix, 0,
-            282f,
-            333f,
+            finalBitmapWidth,
+            finalBitmapHeight,
             1f,
         )
 
@@ -205,7 +230,7 @@ class OpenGL3Activity: AppCompatActivity(),
         // of -1
         Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 1f, 0f, 0f, -1f, 0f, 1f, 0f)
 //        Matrix.setIdentityM(viewMatrix, 0)
-//        Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, mvpMatrix, 0)
+        Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, mvpMatrix, 0)
         Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, mvpMatrix, 0)
 
 //         We combine the scene setup we have done in onSurfaceChanged with the camera setup
