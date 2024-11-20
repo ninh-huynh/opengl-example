@@ -42,7 +42,6 @@ class OpenGL3Activity: AppCompatActivity(),
     private val modelMatrix = FloatArray(16)
     private var bitmapWidth = 0
     private var bitmapHeight = 0
-    private var bitmapScale = 1f
     private var surfaceWidth = 0f
     private var surfaceHeight = 0f
 
@@ -201,8 +200,8 @@ class OpenGL3Activity: AppCompatActivity(),
         val positionX = surfaceWidth / 2
         val positionY = surfaceHeight / 2
 
-        val finalBitmapWidth = bitmapWidth * bitmapScale * 1f
-        val finalBitmapHeight = bitmapHeight * bitmapScale * 1f
+        val finalBitmapWidth = bitmapWidth * scale * 1f
+        val finalBitmapHeight = bitmapHeight * scale * 1f
 
         // change the origin of bitmap from top left to center
         Matrix.translateM(modelMatrix, 0,
@@ -237,8 +236,6 @@ class OpenGL3Activity: AppCompatActivity(),
 //        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
         // We combile that with the applied rotation
 //        Matrix.multiplyMM(mvpMatrix, 0, mvpMatrix, 0, rotationMatrix, 0)
-        // Finally, we apply the scale to our Matrix
-//        Matrix.scaleM(mvpMatrix, 0, scale, scale, scale)
         // We attach the float array containing our Matrix to the correct handle
         GLES30.glUniformMatrix4fv(uMVPMatrix, 1, false, mvpMatrix, 0)
 
