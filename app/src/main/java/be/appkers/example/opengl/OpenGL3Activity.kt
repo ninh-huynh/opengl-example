@@ -4,16 +4,23 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.RectF
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.opengl.GLUtils
 import android.opengl.Matrix
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
+import be.appkers.example.opengl.databinding.ActivityMainBinding
 import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -25,7 +32,7 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
 
-class OpenGL3Activity: AppCompatActivity(),
+class OpenGL3Activity: ComponentActivity(),
     GLSurfaceView.Renderer,
     View.OnTouchListener,
     ScaleGestureDetector.OnScaleGestureListener
@@ -44,33 +51,53 @@ class OpenGL3Activity: AppCompatActivity(),
     private var bitmapHeight = 0
     private var surfaceWidth = 0f
     private var surfaceHeight = 0f
+    private val bitmapRect = RectF()
+    private lateinit var binding: ActivityMainBinding
 
     // endregion Variables
     // region LifeCycle
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         detector = ScaleGestureDetector(this, this)
 
-        view = findViewById<View>(R.id.surface) as GLSurfaceView
-        view!!.setOnTouchListener(this)
-        view!!.preserveEGLContextOnPause = true
-        view!!.setEGLContextClientVersion(2)
-        view!!.setRenderer(this)
-        view!!.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+
+        binding.surface.setOnTouchListener(this)
+        binding.surface.preserveEGLContextOnPause = true
+        binding.surface.setEGLContextClientVersion(3)
+        binding.surface.setRenderer(this)
+        binding.surface.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) {v, insets ->
+
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars()
+                or WindowInsetsCompat.Type.displayCutout()
+            )
+
+            v.updatePadding(
+                left = bars.left,
+                top = bars.top,
+                right = bars.right,
+                bottom = bars.bottom
+            )
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
 
     override fun onResume() {
         super.onResume()
-        view!!.onResume()
+        binding.surface.onResume()
     }
 
     override fun onPause() {
         super.onPause()
-        view!!.onPause()
+        binding.surface.onPause()
     }
 
     // endregion LifeCycle
@@ -80,18 +107,19 @@ class OpenGL3Activity: AppCompatActivity(),
     var vao = 0
     var ebo = 0
 
+    private val usePixelBasedCoordinate = true
+
     override fun onSurfaceCreated(gl10: GL10?, eglConfig: EGLConfig?) {
         // A little bit of initialization
-        GLES30.glClearColor(0f, 0f, 0f, 0f)
+        GLES30.glClearColor(0f, 1f, 0f, 1f)
         Matrix.setRotateM(rotationMatrix, 0, 0f, 0f, 0f, 1.0f)
 
         // First, we load the picture into a texture that OpenGL will be able to use
         val bitmap = loadBitmapFromAssets()
-        bitmapWidth = bitmap.width
-        bitmapHeight = bitmap.height
-        val texture = createFBOTexture(bitmap.width, bitmap.height)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
+        bitmapRect.set(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
+        val texture = createTexture(bitmap.width, bitmap.height)
         GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bitmap)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
         val link = IntArray(1)
 
         // Then, we load the shaders into a program
@@ -114,20 +142,130 @@ class OpenGL3Activity: AppCompatActivity(),
         // Now that our program is loaded and in use, we'll retrieve the handles of the parameters
         // we pass to our shaders
         uMVPMatrix = GLES30.glGetUniformLocation(iProgId, "uMVPMatrix")
+        val uTextureLocation = GLES30.glGetUniformLocation(iProgId, "uTexture")
 
-        // 1080, 2400
-        val vertices = floatArrayOf(
-            // position         // texture coords
-                 0f, 1f, 1f,   0f, 0f,   // bottom left
-                 1f, 1f, 1f,   1f, 0f,   // bottom right
-                 0f, 0f, 1f,   0f, 1f,   // top left
-                 1f, 0f, 1f,   1f, 1f,   // top right
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
+        checkError("glBindTexture-$texture")
+
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + 0)
+        checkError("glActiveTexture")
+
+        GLES30.glUniform1i(uTextureLocation, 0)
+        checkError("glUniform1i")
+
+        // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
+        // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
+//        GLES30.glBindVertexArray(0)
+    }
+
+    override fun onSurfaceChanged(gl10: GL10?, width: Int, height: Int) {
+        GLES30.glViewport(0, 0, width, height)
+        Log.d("OpenGL3Activity", "onSurfaceChanged: $width, $height")   // 1080, 2400
+
+        // OpenGL will stretch what we give it into a square. To avoid this, we have to send the ratio
+        // information to the VERTEX_SHADER. In our case, we pass this information (with other) in the
+        // MVP Matrix as can be seen in the onDrawFrame method.
+        if (usePixelBasedCoordinate) {
+            Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), height.toFloat(), 0f, -1f, 1f)
+        } else {
+            val ratio = width.toFloat() / height
+            Matrix.orthoM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, -1f, 1f)
+            Matrix.setLookAtM(viewMatrix, 0,
+                0f, 0f, 3f,
+                0f, 0f, 0f,
+                0f, 1.0f, 0.0f
+            )
+
+        }
+
+        // Since we requested our OpenGL thread to only render when dirty, we have to tell it to.
+        binding.surface.requestRender()
+
+        surfaceWidth = width.toFloat()
+        surfaceHeight = height.toFloat()
+    }
+
+    private var isSetupVertexBuffer = false
+
+    override fun onDrawFrame(gl10: GL10?) {
+        if (isSetupVertexBuffer.not()) {
+            setupVertexBuffer()
+            isSetupVertexBuffer = true
+        }
+
+        // We have setup that the background color will be black with GLES30.glClearColor in
+        // onSurfaceCreated, now is the time to ask OpenGL to clear the screen with this color
+        GLES30.glClearColor(0f, 1f, 0f, 1f)
+        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
+
+        Matrix.setIdentityM(mvpMatrix, 0)
+        Matrix.setIdentityM(modelMatrix, 0)
+
+        val scale = 2f
+        if (usePixelBasedCoordinate) {
+
+            val time = SystemClock.uptimeMillis() % 4000L
+            val angle = 0.090f * time.toInt()
+            val x = surfaceWidth / 2f - bitmapRect.width() / 2f
+            val y = surfaceHeight / 2f - bitmapRect.height() / 2f
+
+            Matrix.translateM(modelMatrix, 0, x, y, 0f)
+            Matrix.translateM(modelMatrix, 0, bitmapRect.centerX(), bitmapRect.centerY(), 0f)
+            Matrix.rotateM(modelMatrix, 0, angle, 0f, 0f, 1f)
+            Matrix.scaleM(modelMatrix, 0, scale, scale, 0f)
+            Matrix.translateM(modelMatrix, 0, -bitmapRect.centerX(), -bitmapRect.centerY(), 0f)
+
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+        } else {
+            projectionMatrix.copyInto(mvpMatrix)
+        }
+
+//         We combine the scene setup we have done in onSurfaceChanged with the camera setup
+//        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
+        // We combile that with the applied rotation
+//        Matrix.multiplyMM(mvpMatrix, 0, mvpMatrix, 0, rotationMatrix, 0)
+        // We attach the float array containing our Matrix to the correct handle
+        GLES30.glUniformMatrix4fv(uMVPMatrix, 1, false, mvpMatrix, 0)
+        checkError("glUniformMatrix4fv")
+
+        GLES30.glBindVertexArray(vao)
+        checkError("glBindVertexArray")
+
+        // We draw our square which will represent our logo
+        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        checkError("glDrawArrays")
+    }
+
+    private fun setupVertexBuffer() {
+        val position = if (usePixelBasedCoordinate) {
+            floatArrayOf(
+                0f                , bitmapRect.height(),
+                bitmapRect.width(), bitmapRect.height(),
+                0f                , 0f,
+                bitmapRect.width(), 0f,
+            )
+        } else {
+            floatArrayOf(
+                -1f, -1f,       // bottom left
+                1f, -1f,       // bottom right
+                -1f,  1f,       // top left
+                1f,  1f,       // top right
+            )
+        }
+
+        val texCoords = floatArrayOf(
+            0f, 0f,         // bottom left
+            1f, 0f,         // bottom right
+            0f, 1f,         // top left
+            1f, 1f          // top right
         )
 
-        val verticesBuffer: FloatBuffer = ByteBuffer.allocateDirect(vertices.size * 4)
+        val verticesBuffer: FloatBuffer = ByteBuffer.allocateDirect((position.size + texCoords.size) * 4)
             .order(ByteOrder.nativeOrder())
             .asFloatBuffer()
-            .put(vertices)
+
+        verticesBuffer.put(position)
+        verticesBuffer.put(texCoords)
 
         val indices = intArrayOf(
             0, 1, 2, 3
@@ -151,98 +289,25 @@ class OpenGL3Activity: AppCompatActivity(),
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo)
         verticesBuffer.position(0)
-        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, vertices.size * 4, verticesBuffer, GLES30.GL_STATIC_DRAW)
+        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, (position.size + texCoords.size) * 4, verticesBuffer, GLES30.GL_STATIC_DRAW)
 
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, ebo)
         indicesBuffer.position(0)
         GLES30.glBufferData(GLES30.GL_ELEMENT_ARRAY_BUFFER, indices.size * 4, indicesBuffer, GLES30.GL_STATIC_DRAW)
 
         // position attribute
-        GLES30.glVertexAttribPointer(0, 3, GLES30.GL_FLOAT, false, 5 * 4, 0)
+        GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 2 * 4 /*or just simple 0*/, 0)
+        checkError("glVertexAttribPointer-0")
+
         GLES30.glEnableVertexAttribArray(0)
+        checkError("glEnableVertexAttribArray-0")
+
         // texture coord attribute
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 5 * 4, 3 * 4)
+        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 2 * 4 /*or just simple 0*/, 8 * 4)
+        checkError("glVertexAttribPointer-1")
+
         GLES30.glEnableVertexAttribArray(1)
-
-        // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
-        // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
-//        GLES30.glBindVertexArray(0)
-    }
-
-    override fun onSurfaceChanged(gl10: GL10?, width: Int, height: Int) {
-        GLES30.glViewport(0, 0, width, height)
-        Log.d("OpenGL3Activity", "onSurfaceChanged: $width, $height")   // 1080, 2400
-
-        // OpenGL will stretch what we give it into a square. To avoid this, we have to send the ratio
-        // information to the VERTEX_SHADER. In our case, we pass this information (with other) in the
-        // MVP Matrix as can be seen in the onDrawFrame method.
-        val ratio = width.toFloat() / height
-//        Matrix.frustumM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, 3f, 7f)
-//        Matrix.frustumM(projectionMatrix, 0, 0f, width.toFloat(), 0f, height.toFloat(), 3f, 7f)
-        Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), height.toFloat(), 0f, -1f, 1f)
-//        Matrix.perspectiveM()
-
-        // Since we requested our OpenGL thread to only render when dirty, we have to tell it to.
-        view!!.requestRender()
-
-        surfaceWidth = width.toFloat()
-        surfaceHeight = height.toFloat()
-    }
-
-    override fun onDrawFrame(gl10: GL10?) {
-        // We have setup that the background color will be black with GLES30.glClearColor in
-        // onSurfaceCreated, now is the time to ask OpenGL to clear the screen with this color
-        GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
-
-        Matrix.setIdentityM(mvpMatrix, 0)
-        Matrix.setIdentityM(modelMatrix, 0)
-
-        val positionX = surfaceWidth / 2
-        val positionY = surfaceHeight / 2
-
-        val finalBitmapWidth = bitmapWidth * scale * 1f
-        val finalBitmapHeight = bitmapHeight * scale * 1f
-
-        // change the origin of bitmap from top left to center
-        Matrix.translateM(modelMatrix, 0,
-            - finalBitmapWidth / 2f,
-            - finalBitmapHeight / 2f,
-            0f
-        )
-
-        Matrix.translateM(
-            modelMatrix, 0,
-            positionX,
-            positionY,
-            0f
-        )
-
-        Matrix.scaleM(modelMatrix, 0,
-            finalBitmapWidth,
-            finalBitmapHeight,
-            1f,
-        )
-
-        Matrix.multiplyMM(mvpMatrix, 0, modelMatrix, 0, mvpMatrix, 0)
-
-        // Using matrices, we set the camera at the center, advanced of 7 looking to the center back
-        // of -1
-        Matrix.setLookAtM(viewMatrix, 0, 0f, 0f, 1f, 0f, 0f, -1f, 0f, 1f, 0f)
-//        Matrix.setIdentityM(viewMatrix, 0)
-        Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, mvpMatrix, 0)
-        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, mvpMatrix, 0)
-
-//         We combine the scene setup we have done in onSurfaceChanged with the camera setup
-//        Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, viewMatrix, 0)
-        // We combile that with the applied rotation
-//        Matrix.multiplyMM(mvpMatrix, 0, mvpMatrix, 0, rotationMatrix, 0)
-        // We attach the float array containing our Matrix to the correct handle
-        GLES30.glUniformMatrix4fv(uMVPMatrix, 1, false, mvpMatrix, 0)
-
-        GLES30.glBindVertexArray(vao)
-
-        // We draw our square which will represent our logo
-        GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        checkError("glEnableVertexAttribArray-1")
     }
 
 
@@ -388,5 +453,12 @@ class OpenGL3Activity: AppCompatActivity(),
 
         // 2. Create and compile the shader
         return loadShader(shaderSource, shaderType)
+    }
+
+    private fun checkError(contextToCheck: String) {
+        val error = GLES30.glGetError()
+        if (error != GLES30.GL_NO_ERROR) {
+            throw IllegalStateException("$contextToCheck is failed with status code $error")
+        }
     }
 }
