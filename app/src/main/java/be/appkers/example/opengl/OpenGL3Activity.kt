@@ -54,6 +54,10 @@ class OpenGL3Activity: ComponentActivity(),
     private val bitmapRect = RectF()
     private lateinit var binding: ActivityMainBinding
 
+    private var rectX = 0f
+    private var rectY = 0f
+    private var rectScale = 1f
+
     // endregion Variables
     // region LifeCycle
     @SuppressLint("ClickableViewAccessibility")
@@ -166,7 +170,9 @@ class OpenGL3Activity: ComponentActivity(),
         // information to the VERTEX_SHADER. In our case, we pass this information (with other) in the
         // MVP Matrix as can be seen in the onDrawFrame method.
         if (usePixelBasedCoordinate) {
-            Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), height.toFloat(), 0f, -1f, 1f)
+//            Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), height.toFloat(), 0f, -1f, 1f)
+            // the 0,0 is at bottom left
+            Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), 0f, height.toFloat(), -1f, 1f)
         } else {
             val ratio = width.toFloat() / height
             Matrix.orthoM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, -1f, 1f)
@@ -183,6 +189,9 @@ class OpenGL3Activity: ComponentActivity(),
 
         surfaceWidth = width.toFloat()
         surfaceHeight = height.toFloat()
+
+        rectX = surfaceWidth / 2f
+        rectY = surfaceHeight / 2f
     }
 
     private var isSetupVertexBuffer = false
@@ -195,25 +204,26 @@ class OpenGL3Activity: ComponentActivity(),
 
         // We have setup that the background color will be black with GLES30.glClearColor in
         // onSurfaceCreated, now is the time to ask OpenGL to clear the screen with this color
-        GLES30.glClearColor(0f, 1f, 0f, 1f)
+        GLES30.glClearColor(1f, 1f, 0f, 1f)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
+
+        GLES30.glEnable(GLES30.GL_BLEND)
+        GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA, GLES30.GL_ONE_MINUS_SRC_ALPHA)
 
         Matrix.setIdentityM(mvpMatrix, 0)
         Matrix.setIdentityM(modelMatrix, 0)
 
-        val scale = 2f
         if (usePixelBasedCoordinate) {
 
             val time = SystemClock.uptimeMillis() % 4000L
             val angle = 0.090f * time.toInt()
-            val x = surfaceWidth / 2f - bitmapRect.width() / 2f
-            val y = surfaceHeight / 2f - bitmapRect.height() / 2f
+            val scaleX = bitmapRect.width() * rectScale
+            val scaleY = bitmapRect.height() * rectScale
 
-            Matrix.translateM(modelMatrix, 0, x, y, 0f)
-            Matrix.translateM(modelMatrix, 0, bitmapRect.centerX(), bitmapRect.centerY(), 0f)
+
+            Matrix.translateM(modelMatrix, 0, rectX, rectY, 0f)
             Matrix.rotateM(modelMatrix, 0, angle, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, scale, scale, 0f)
-            Matrix.translateM(modelMatrix, 0, -bitmapRect.centerX(), -bitmapRect.centerY(), 0f)
+            Matrix.scaleM(modelMatrix, 0, scaleX, scaleY, 1f)
 
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         } else {
@@ -238,11 +248,12 @@ class OpenGL3Activity: ComponentActivity(),
 
     private fun setupVertexBuffer() {
         val position = if (usePixelBasedCoordinate) {
+            // create a 1x1 square, so that we can apply the correct scale later.
             floatArrayOf(
-                0f                , bitmapRect.height(),
-                bitmapRect.width(), bitmapRect.height(),
-                0f                , 0f,
-                bitmapRect.width(), 0f,
+                -0.5f, -0.5f,   // bottom left
+                 0.5f, -0.5f,   // bottom right
+                -0.5f, 0.5f,    // top left
+                 0.5f, 0.5f,    // top right
             )
         } else {
             floatArrayOf(
@@ -316,25 +327,16 @@ class OpenGL3Activity: ComponentActivity(),
     private var previousX = 0f  // region Listener
     private var previousY = 0f
     @SuppressLint("ClickableViewAccessibility")
-    override fun onTouch(view: View?, motionEvent: MotionEvent): Boolean {
+    override fun onTouch(view: View, motionEvent: MotionEvent): Boolean {
         detector!!.onTouchEvent(motionEvent)
         if (motionEvent.pointerCount == 1) {
             when (motionEvent.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    previousX = motionEvent.x
-                    previousY = motionEvent.y
-                }
-
-                MotionEvent.ACTION_MOVE -> {
-                    if (previousX != motionEvent.x) {
-//                        Matrix.rotateM(rotationMatrix, 0, motionEvent.x - previousX, 0f, 1f, 0f)
+                MotionEvent.ACTION_MOVE, MotionEvent.ACTION_DOWN -> {
+                    val inverseY = view.height - motionEvent.y
+                    binding.surface.queueEvent {
+                        rectX = motionEvent.x
+                        rectY = inverseY
                     }
-                    if (previousY != motionEvent.y) {
-//                        Matrix.rotateM(rotationMatrix, 0, motionEvent.y - previousY, 1f, 0f, 0f)
-                    }
-                    this.view!!.requestRender()
-                    previousX = motionEvent.x
-                    previousY = motionEvent.y
                 }
             }
         }
@@ -344,8 +346,10 @@ class OpenGL3Activity: ComponentActivity(),
 
     override fun onScale(scaleGestureDetector: ScaleGestureDetector): Boolean {
         if (scaleGestureDetector.scaleFactor != 0f) {
-            scale *= scaleGestureDetector.scaleFactor
-            view!!.requestRender()
+            val currentScaleFactor = scaleGestureDetector.scaleFactor
+            binding.surface.queueEvent {
+                rectScale *= currentScaleFactor
+            }
         }
         return true
     }
@@ -364,6 +368,7 @@ class OpenGL3Activity: ComponentActivity(),
             val orgBitmap = BitmapFactory.decodeStream(`is`)
             val matrix = android.graphics.Matrix()
             matrix.postScale(1f, -1f, orgBitmap.width/2f, orgBitmap.height/2f)
+//            return orgBitmap
             return Bitmap.createBitmap(orgBitmap, 0, 0, orgBitmap.width, orgBitmap.height, matrix, true)
         } catch (ex: IOException) {
             throw RuntimeException()
