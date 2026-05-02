@@ -132,8 +132,8 @@ class OpenGL3Activity : ComponentActivity(),
         // we pass to our shaders
         uMVPMatrix = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uMVPMatrix")
 
-        val outColor = GLES30.glGetUniformLocation(shaderProgram.iProgId, "outColor");
-        GLES30.glUniform4f(outColor, 1f, 0f, 0f, 1f);
+        val uColor = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uColor");
+        GLES30.glUniform4f(uColor, 1f, 0f, 0f, 1f);
         checkError("glUniform4f")
 
         // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
@@ -203,7 +203,7 @@ class OpenGL3Activity : ComponentActivity(),
 
             Matrix.translateM(modelMatrix, 0, 0f, 0f, 0f)
             Matrix.rotateM(modelMatrix, 0, 0f, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, 150f, 150f, 1f)
+            Matrix.scaleM(modelMatrix, 0, 500f, 500f, 1f)
 
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         } else {
