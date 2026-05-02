@@ -1,7 +1,6 @@
 package be.appkers.example.opengl
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.RectF
@@ -122,11 +121,18 @@ class OpenGL3Activity : ComponentActivity(),
         GLES30.glClearColor(0f, 1f, 0f, 1f)
         Matrix.setRotateM(rotationMatrix, 0, 0f, 0f, 0f, 1.0f)
 
+        // First, we load the picture into a texture that OpenGL will be able to use
+        val bitmap = loadBitmapFromAssets()
+        bitmapRect.set(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
+        val texture = createTexture(bitmap.width, bitmap.height)
+        GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bitmap)
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+
         shaderProgram = ShaderProgram(
-            assets.open("solid_rect.vert").use { inputStream ->
+            assets.open("shader.vert").use { inputStream ->
                 InputStreamReader(inputStream).readText()
             },
-            assets.open("solid_rect.frag").use { inputStream ->
+            assets.open("shader.frag").use { inputStream ->
                 InputStreamReader(inputStream).readText()
             }
         )
@@ -135,10 +141,20 @@ class OpenGL3Activity : ComponentActivity(),
         // we pass to our shaders
         uMVPMatrix = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uMVPMatrix")
 
-        val uColor = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uColor");
-        GLES30.glUniform4f(uColor, 1f, 0f, 0f, 1f);
-        checkError("glUniform4f")
+//        val uColor = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uColor");
+//        GLES30.glUniform4f(uColor, 1f, 0f, 0f, 1f);
+//        checkError("glUniform4f")
 
+        val uTextureLocation = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uTexture")
+
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
+        checkError("glBindTexture-$texture")
+
+        GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + 0)
+        checkError("glActiveTexture")
+
+        GLES30.glUniform1i(uTextureLocation, 0)
+        checkError("glUniform1i")
         // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
         // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
 //        GLES30.glBindVertexArray(0)
@@ -171,10 +187,10 @@ class OpenGL3Activity : ComponentActivity(),
 
             var left = -0.5f
             var right = 0.5f
-            var bottom = -0.5f
-            var top = 0.5f
+            var bottom = 0.5f
+            var top = -0.5f
 
-            val mediaRatio = 16f / 9f
+            val mediaRatio = bitmapRect.width() / bitmapRect.height()
             if (surfaceRatio > mediaRatio) {
                 // screen is wider than media (Pillarbox - black bars on sides)
                 // we want the image to fill the height (-0.5 to 0.5)
@@ -195,8 +211,8 @@ class OpenGL3Activity : ComponentActivity(),
 //                bottom = -extra
 //                top = 1f + extra
                 val visibleHeight = mediaRatio / surfaceRatio
-                bottom = -visibleHeight / 2f
-                top = visibleHeight / 2f
+                bottom = visibleHeight / 2f
+                top = -visibleHeight / 2f
             }
             Matrix.orthoM(projectionMatrix, 0, left, right, bottom, top, -1f, 1f)
         } else {
@@ -283,10 +299,6 @@ class OpenGL3Activity : ComponentActivity(),
                 0.5f, -0.5f,   // bottom right
                 -0.5f, 0.5f,    // top left
                 0.5f, 0.5f,    // top right
-//                0.0f, 0.0f,
-//                1.0f, 0.0f,
-//                0.0f, 1.0f,
-//                1.0f, 1.0f
             )
         } else {
             floatArrayOf(
@@ -358,19 +370,19 @@ class OpenGL3Activity : ComponentActivity(),
         GLES30.glEnableVertexAttribArray(0)
         checkError("glEnableVertexAttribArray-0")
 
-//        // texture coord attribute
-//        GLES30.glVertexAttribPointer(
-//            1,
-//            2,
-//            GLES30.GL_FLOAT,
-//            false,
-//            2 * 4 /*or just simple 0*/,
-//            8 * 4
-//        )
-//        checkError("glVertexAttribPointer-1")
-//
-//        GLES30.glEnableVertexAttribArray(1)
-//        checkError("glEnableVertexAttribArray-1")
+        // texture coord attribute
+        GLES30.glVertexAttribPointer(
+            1,
+            2,
+            GLES30.GL_FLOAT,
+            false,
+            2 * 4 /*or just simple 0*/,
+            8 * 4
+        )
+        checkError("glVertexAttribPointer-1")
+
+        GLES30.glEnableVertexAttribArray(1)
+        checkError("glEnableVertexAttribArray-1")
     }
 
 
@@ -417,20 +429,10 @@ class OpenGL3Activity : ComponentActivity(),
     private fun loadBitmapFromAssets(): Bitmap {
         var `is`: InputStream? = null
         try {
-            `is` = assets.open("logo.png")
+            `is` = assets.open("woman_robot.jpg")
+            //`is` = assets.open("logo.png")
             val orgBitmap = BitmapFactory.decodeStream(`is`)
-            val matrix = android.graphics.Matrix()
-            matrix.postScale(1f, -1f, orgBitmap.width / 2f, orgBitmap.height / 2f)
-//            return orgBitmap
-            return Bitmap.createBitmap(
-                orgBitmap,
-                0,
-                0,
-                orgBitmap.width,
-                orgBitmap.height,
-                matrix,
-                true
-            )
+            return orgBitmap
         } catch (ex: IOException) {
             throw RuntimeException()
         } finally {
