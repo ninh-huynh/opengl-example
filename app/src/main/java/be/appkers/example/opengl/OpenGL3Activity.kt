@@ -57,6 +57,8 @@ class OpenGL3Activity : ComponentActivity(),
     private var rectY = 0f
     private var rectScale = 1f
 
+    private var mySquareSize = -1f
+
     // endregion Variables
     // region LifeCycle
     @SuppressLint("ClickableViewAccessibility")
@@ -172,6 +174,7 @@ class OpenGL3Activity : ComponentActivity(),
 
         rectX = surfaceWidth / 2f
         rectY = surfaceHeight / 2f
+        mySquareSize = surfaceWidth / 3f;
     }
 
     private var isSetupVertexBuffer = false
@@ -203,7 +206,7 @@ class OpenGL3Activity : ComponentActivity(),
 
             Matrix.translateM(modelMatrix, 0, 0f, 0f, 0f)
             Matrix.rotateM(modelMatrix, 0, 0f, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, 500f, 500f, 1f)
+            Matrix.scaleM(modelMatrix, 0, mySquareSize, mySquareSize, 1f)
 
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         } else {
