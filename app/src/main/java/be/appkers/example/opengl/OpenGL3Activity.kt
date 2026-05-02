@@ -168,6 +168,37 @@ class OpenGL3Activity : ComponentActivity(),
             // We use a virtual coordinate instead of the pixel coordinate. The range is about [0, 1]
             // the original (0,0) is at the top
             Matrix.orthoM(projectionMatrix, 0, 0f, 1f, 1f, 0f, -1f, 1f);
+
+            var left = -0.5f
+            var right = 0.5f
+            var bottom = -0.5f
+            var top = 0.5f
+
+            val mediaRatio = 16f / 9f
+            if (surfaceRatio > mediaRatio) {
+                // screen is wider than media (Pillarbox - black bars on sides)
+                // we want the image to fill the height (-0.5 to 0.5)
+//                val widthToDisplay = surfaceRatio / mediaRatio
+//                val extra = (widthToDisplay - 1f) / 2f
+//                left = -extra
+//                right = 1f + extra
+
+                val visibleWidth = surfaceRatio / mediaRatio
+                left = -visibleWidth / 2f
+                right = visibleWidth / 2f
+
+            } else {
+                // screen is taller than media (Letterbox, black bars on top/bottom)
+                // we want the image to full the width (-0.5 to 0.5)
+//                val heightToDisplay = mediaRatio / surfaceRatio
+//                val extra = (heightToDisplay - 1f) / 2f
+//                bottom = -extra
+//                top = 1f + extra
+                val visibleHeight = mediaRatio / surfaceRatio
+                bottom = -visibleHeight / 2f
+                top = visibleHeight / 2f
+            }
+            Matrix.orthoM(projectionMatrix, 0, left, right, bottom, top, -1f, 1f)
         } else {
             val ratio = width.toFloat() / height
             Matrix.orthoM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, -1f, 1f)
@@ -213,17 +244,17 @@ class OpenGL3Activity : ComponentActivity(),
             val scaleY = bitmapRect.height() * rectScale
 
 
-            Matrix.translateM(modelMatrix, 0, 0.5f, 0.5f, 0f)
+            Matrix.translateM(modelMatrix, 0, 0f, 0f, 0f)
             Matrix.rotateM(modelMatrix, 0, 0f, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, 0.3f,  0.3f * surfaceRatio , 1f)
+            Matrix.scaleM(modelMatrix, 0, 1f, 1f, 1f)
 
-            Matrix.translateM(viewMatrix, 0, 0f,0f , 0f)
+            Matrix.translateM(viewMatrix, 0, 0f, 0f, 0f)
             Matrix.rotateM(viewMatrix, 0, 0f, 0f, 0f, 1f)
             Matrix.scaleM(viewMatrix, 0, 1f, 1f, 1f)
 
             // mvp =  project * view * model
             Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, modelMatrix, 0)
-            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0 , mvpMatrix, 0)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, mvpMatrix, 0)
         } else {
             projectionMatrix.copyInto(mvpMatrix)
         }
@@ -252,6 +283,10 @@ class OpenGL3Activity : ComponentActivity(),
                 0.5f, -0.5f,   // bottom right
                 -0.5f, 0.5f,    // top left
                 0.5f, 0.5f,    // top right
+//                0.0f, 0.0f,
+//                1.0f, 0.0f,
+//                0.0f, 1.0f,
+//                1.0f, 1.0f
             )
         } else {
             floatArrayOf(
