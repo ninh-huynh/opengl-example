@@ -32,11 +32,10 @@ import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
 
-class OpenGL3Activity: ComponentActivity(),
+class OpenGL3Activity : ComponentActivity(),
     GLSurfaceView.Renderer,
     View.OnTouchListener,
-    ScaleGestureDetector.OnScaleGestureListener
-{
+    ScaleGestureDetector.OnScaleGestureListener {
     // region Variables
     private var view: GLSurfaceView? = null
     private var uMVPMatrix = 0
@@ -76,11 +75,11 @@ class OpenGL3Activity: ComponentActivity(),
         binding.surface.setRenderer(this)
         binding.surface.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) {v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
 
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars()
-                or WindowInsetsCompat.Type.displayCutout()
+                        or WindowInsetsCompat.Type.displayCutout()
             )
 
             v.updatePadding(
@@ -111,6 +110,8 @@ class OpenGL3Activity: ComponentActivity(),
     var vao = 0
     var ebo = 0
 
+    lateinit var shaderProgram: ShaderProgram
+
     private val usePixelBasedCoordinate = true
 
     override fun onSurfaceCreated(gl10: GL10?, eglConfig: EGLConfig?) {
@@ -124,29 +125,20 @@ class OpenGL3Activity: ComponentActivity(),
         val texture = createTexture(bitmap.width, bitmap.height)
         GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bitmap)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
-        val link = IntArray(1)
 
-        // Then, we load the shaders into a program
-        val iVShader = loadShader(this, "shader.vert", GLES30.GL_VERTEX_SHADER)
-        val iFShader = loadShader(this, "shader.frag", GLES30.GL_FRAGMENT_SHADER)
-
-        val iProgId = GLES30.glCreateProgram()
-        GLES30.glAttachShader(iProgId, iVShader)
-        GLES30.glAttachShader(iProgId, iFShader)
-        GLES30.glLinkProgram(iProgId)
-
-        GLES30.glGetProgramiv(iProgId, GLES30.GL_LINK_STATUS, link, 0)
-        if (link[0] <= 0) {
-            throw RuntimeException("Program couldn't be loaded")
-        }
-        GLES30.glDeleteShader(iVShader)
-        GLES30.glDeleteShader(iFShader)
-        GLES30.glUseProgram(iProgId)
+        shaderProgram = ShaderProgram(
+            assets.open("shader.vert").use { inputStream ->
+                InputStreamReader(inputStream).readText()
+            },
+            assets.open("shader.frag").use { inputStream ->
+                InputStreamReader(inputStream).readText()
+            }
+        )
 
         // Now that our program is loaded and in use, we'll retrieve the handles of the parameters
         // we pass to our shaders
-        uMVPMatrix = GLES30.glGetUniformLocation(iProgId, "uMVPMatrix")
-        val uTextureLocation = GLES30.glGetUniformLocation(iProgId, "uTexture")
+        uMVPMatrix = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uMVPMatrix")
+        val uTextureLocation = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uTexture")
 
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
         checkError("glBindTexture-$texture")
@@ -176,7 +168,8 @@ class OpenGL3Activity: ComponentActivity(),
         } else {
             val ratio = width.toFloat() / height
             Matrix.orthoM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, -1f, 1f)
-            Matrix.setLookAtM(viewMatrix, 0,
+            Matrix.setLookAtM(
+                viewMatrix, 0,
                 0f, 0f, 3f,
                 0f, 0f, 0f,
                 0f, 1.0f, 0.0f
@@ -251,16 +244,16 @@ class OpenGL3Activity: ComponentActivity(),
             // create a 1x1 square, so that we can apply the correct scale later.
             floatArrayOf(
                 -0.5f, -0.5f,   // bottom left
-                 0.5f, -0.5f,   // bottom right
+                0.5f, -0.5f,   // bottom right
                 -0.5f, 0.5f,    // top left
-                 0.5f, 0.5f,    // top right
+                0.5f, 0.5f,    // top right
             )
         } else {
             floatArrayOf(
                 -1f, -1f,       // bottom left
                 1f, -1f,       // bottom right
-                -1f,  1f,       // top left
-                1f,  1f,       // top right
+                -1f, 1f,       // top left
+                1f, 1f,       // top right
             )
         }
 
@@ -271,9 +264,10 @@ class OpenGL3Activity: ComponentActivity(),
             1f, 1f          // top right
         )
 
-        val verticesBuffer: FloatBuffer = ByteBuffer.allocateDirect((position.size + texCoords.size) * 4)
-            .order(ByteOrder.nativeOrder())
-            .asFloatBuffer()
+        val verticesBuffer: FloatBuffer =
+            ByteBuffer.allocateDirect((position.size + texCoords.size) * 4)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer()
 
         verticesBuffer.put(position)
         verticesBuffer.put(texCoords)
@@ -300,11 +294,21 @@ class OpenGL3Activity: ComponentActivity(),
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo)
         verticesBuffer.position(0)
-        GLES30.glBufferData(GLES30.GL_ARRAY_BUFFER, (position.size + texCoords.size) * 4, verticesBuffer, GLES30.GL_STATIC_DRAW)
+        GLES30.glBufferData(
+            GLES30.GL_ARRAY_BUFFER,
+            (position.size + texCoords.size) * 4,
+            verticesBuffer,
+            GLES30.GL_STATIC_DRAW
+        )
 
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, ebo)
         indicesBuffer.position(0)
-        GLES30.glBufferData(GLES30.GL_ELEMENT_ARRAY_BUFFER, indices.size * 4, indicesBuffer, GLES30.GL_STATIC_DRAW)
+        GLES30.glBufferData(
+            GLES30.GL_ELEMENT_ARRAY_BUFFER,
+            indices.size * 4,
+            indicesBuffer,
+            GLES30.GL_STATIC_DRAW
+        )
 
         // position attribute
         GLES30.glVertexAttribPointer(0, 2, GLES30.GL_FLOAT, false, 2 * 4 /*or just simple 0*/, 0)
@@ -314,7 +318,14 @@ class OpenGL3Activity: ComponentActivity(),
         checkError("glEnableVertexAttribArray-0")
 
         // texture coord attribute
-        GLES30.glVertexAttribPointer(1, 2, GLES30.GL_FLOAT, false, 2 * 4 /*or just simple 0*/, 8 * 4)
+        GLES30.glVertexAttribPointer(
+            1,
+            2,
+            GLES30.GL_FLOAT,
+            false,
+            2 * 4 /*or just simple 0*/,
+            8 * 4
+        )
         checkError("glVertexAttribPointer-1")
 
         GLES30.glEnableVertexAttribArray(1)
@@ -326,6 +337,7 @@ class OpenGL3Activity: ComponentActivity(),
     // region Listener
     private var previousX = 0f  // region Listener
     private var previousY = 0f
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouch(view: View, motionEvent: MotionEvent): Boolean {
         detector!!.onTouchEvent(motionEvent)
@@ -367,9 +379,17 @@ class OpenGL3Activity: ComponentActivity(),
             `is` = assets.open("logo.png")
             val orgBitmap = BitmapFactory.decodeStream(`is`)
             val matrix = android.graphics.Matrix()
-            matrix.postScale(1f, -1f, orgBitmap.width/2f, orgBitmap.height/2f)
+            matrix.postScale(1f, -1f, orgBitmap.width / 2f, orgBitmap.height / 2f)
 //            return orgBitmap
-            return Bitmap.createBitmap(orgBitmap, 0, 0, orgBitmap.width, orgBitmap.height, matrix, true)
+            return Bitmap.createBitmap(
+                orgBitmap,
+                0,
+                0,
+                orgBitmap.width,
+                orgBitmap.height,
+                matrix,
+                true
+            )
         } catch (ex: IOException) {
             throw RuntimeException()
         } finally {
@@ -383,87 +403,5 @@ class OpenGL3Activity: ComponentActivity(),
         }
     }
 
-    private fun createFBOTexture(width: Int, height: Int): Int {
-        val temp = IntArray(1)
-        GLES30.glGenFramebuffers(1, temp, 0)
-        val handleID = temp[0]
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, handleID)
 
-        val fboTex = createTexture(width, height)
-        GLES30.glFramebufferTexture2D(
-            GLES30.GL_FRAMEBUFFER,
-            GLES30.GL_COLOR_ATTACHMENT0,
-            GLES30.GL_TEXTURE_2D,
-            fboTex,
-            0
-        )
-
-        check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) { "GL_FRAMEBUFFER status incomplete" }
-
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
-        GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
-        return handleID
-    }
-
-    private fun createTexture(width: Int, height: Int): Int {
-        val mTextureHandles = IntArray(1)
-        GLES30.glGenTextures(1, mTextureHandles, 0)
-        val textureID = mTextureHandles[0]
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textureID)
-        GLES30.glTexImage2D(
-            GLES30.GL_TEXTURE_2D,
-            0,
-            GLES30.GL_RGBA,
-            width,
-            height,
-            0,
-            GLES30.GL_RGBA,
-            GLES30.GL_UNSIGNED_BYTE,
-            null
-        )
-        GLES30.glTexParameteri(
-            GLES30.GL_TEXTURE_2D,
-            GLES30.GL_TEXTURE_WRAP_S,
-            GLES30.GL_CLAMP_TO_EDGE
-        )
-        GLES30.glTexParameteri(
-            GLES30.GL_TEXTURE_2D,
-            GLES30.GL_TEXTURE_WRAP_T,
-            GLES30.GL_CLAMP_TO_EDGE
-        )
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_LINEAR)
-        GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_LINEAR)
-        return textureID
-    }
-
-
-    private fun loadShader(strSource: String, iType: Int): Int {
-        val compiled = IntArray(1)
-        val iShader = GLES30.glCreateShader(iType)
-        GLES30.glShaderSource(iShader, strSource)
-        GLES30.glCompileShader(iShader)
-        GLES30.glGetShaderiv(iShader, GLES30.GL_COMPILE_STATUS, compiled, 0)
-        if (compiled[0] == 0) {
-            throw RuntimeException("Compilation failed : " + GLES30.glGetShaderInfoLog(iShader))
-        }
-        return iShader
-    } // endregion Utils
-
-
-    private fun loadShader(context: Context, filePath: String, shaderType: Int): Int {
-        // 1. Read shader source from assets
-        val shaderSource = context.assets.open(filePath).use { inputStream ->
-            InputStreamReader(inputStream).readText()
-        }
-
-        // 2. Create and compile the shader
-        return loadShader(shaderSource, shaderType)
-    }
-
-    private fun checkError(contextToCheck: String) {
-        val error = GLES30.glGetError()
-        if (error != GLES30.GL_NO_ERROR) {
-            throw IllegalStateException("$contextToCheck is failed with status code $error")
-        }
-    }
 }
