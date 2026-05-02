@@ -271,6 +271,7 @@ class OpenGL3Activity : ComponentActivity(),
 
         verticesBuffer.put(position)
         verticesBuffer.put(texCoords)
+        verticesBuffer.flip()
 
         val indices = intArrayOf(
             0, 1, 2, 3
@@ -280,6 +281,8 @@ class OpenGL3Activity : ComponentActivity(),
             .order(ByteOrder.nativeOrder())
             .asIntBuffer()
             .put(indices)
+
+        indicesBuffer.flip()
 
         val tempArr = intArrayOf(0)
 
@@ -293,7 +296,6 @@ class OpenGL3Activity : ComponentActivity(),
         GLES30.glBindVertexArray(vao)
 
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, vbo)
-        verticesBuffer.position(0)
         GLES30.glBufferData(
             GLES30.GL_ARRAY_BUFFER,
             (position.size + texCoords.size) * 4,
@@ -302,7 +304,6 @@ class OpenGL3Activity : ComponentActivity(),
         )
 
         GLES30.glBindBuffer(GLES30.GL_ELEMENT_ARRAY_BUFFER, ebo)
-        indicesBuffer.position(0)
         GLES30.glBufferData(
             GLES30.GL_ELEMENT_ARRAY_BUFFER,
             indices.size * 4,
