@@ -195,6 +195,7 @@ class OpenGL3Activity : ComponentActivity(),
 
         Matrix.setIdentityM(mvpMatrix, 0)
         Matrix.setIdentityM(modelMatrix, 0)
+        Matrix.setIdentityM(viewMatrix, 0)
 
         if (usePixelBasedCoordinate) {
 
@@ -208,7 +209,9 @@ class OpenGL3Activity : ComponentActivity(),
             Matrix.rotateM(modelMatrix, 0, 0f, 0f, 0f, 1f)
             Matrix.scaleM(modelMatrix, 0, mySquareSize, mySquareSize, 1f)
 
-            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
+            // mvp =  project * view * model
+            Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, modelMatrix, 0)
+            Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0 , mvpMatrix, 0)
         } else {
             projectionMatrix.copyInto(mvpMatrix)
         }
