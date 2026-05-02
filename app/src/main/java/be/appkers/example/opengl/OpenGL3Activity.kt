@@ -119,18 +119,11 @@ class OpenGL3Activity : ComponentActivity(),
         GLES30.glClearColor(0f, 1f, 0f, 1f)
         Matrix.setRotateM(rotationMatrix, 0, 0f, 0f, 0f, 1.0f)
 
-        // First, we load the picture into a texture that OpenGL will be able to use
-        val bitmap = loadBitmapFromAssets()
-        bitmapRect.set(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
-        val texture = createTexture(bitmap.width, bitmap.height)
-        GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bitmap)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
-
         shaderProgram = ShaderProgram(
-            assets.open("shader.vert").use { inputStream ->
+            assets.open("solid_rect.vert").use { inputStream ->
                 InputStreamReader(inputStream).readText()
             },
-            assets.open("shader.frag").use { inputStream ->
+            assets.open("solid_rect.frag").use { inputStream ->
                 InputStreamReader(inputStream).readText()
             }
         )
@@ -138,16 +131,10 @@ class OpenGL3Activity : ComponentActivity(),
         // Now that our program is loaded and in use, we'll retrieve the handles of the parameters
         // we pass to our shaders
         uMVPMatrix = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uMVPMatrix")
-        val uTextureLocation = GLES30.glGetUniformLocation(shaderProgram.iProgId, "uTexture")
 
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, texture)
-        checkError("glBindTexture-$texture")
-
-        GLES30.glActiveTexture(GLES30.GL_TEXTURE0 + 0)
-        checkError("glActiveTexture")
-
-        GLES30.glUniform1i(uTextureLocation, 0)
-        checkError("glUniform1i")
+        val outColor = GLES30.glGetUniformLocation(shaderProgram.iProgId, "outColor");
+        GLES30.glUniform4f(outColor, 1f, 0f, 0f, 1f);
+        checkError("glUniform4f")
 
         // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
         // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
@@ -197,7 +184,7 @@ class OpenGL3Activity : ComponentActivity(),
 
         // We have setup that the background color will be black with GLES30.glClearColor in
         // onSurfaceCreated, now is the time to ask OpenGL to clear the screen with this color
-        GLES30.glClearColor(1f, 1f, 0f, 1f)
+        GLES30.glClearColor(0f, 0f, 0f, 1f)
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT or GLES30.GL_DEPTH_BUFFER_BIT)
 
         GLES30.glEnable(GLES30.GL_BLEND)
@@ -214,9 +201,9 @@ class OpenGL3Activity : ComponentActivity(),
             val scaleY = bitmapRect.height() * rectScale
 
 
-            Matrix.translateM(modelMatrix, 0, rectX, rectY, 0f)
-            Matrix.rotateM(modelMatrix, 0, angle, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, scaleX, scaleY, 1f)
+            Matrix.translateM(modelMatrix, 0, 0f, 0f, 0f)
+            Matrix.rotateM(modelMatrix, 0, 0f, 0f, 0f, 1f)
+            Matrix.scaleM(modelMatrix, 0, 150f, 150f, 1f)
 
             Matrix.multiplyMM(mvpMatrix, 0, projectionMatrix, 0, modelMatrix, 0)
         } else {
@@ -318,19 +305,19 @@ class OpenGL3Activity : ComponentActivity(),
         GLES30.glEnableVertexAttribArray(0)
         checkError("glEnableVertexAttribArray-0")
 
-        // texture coord attribute
-        GLES30.glVertexAttribPointer(
-            1,
-            2,
-            GLES30.GL_FLOAT,
-            false,
-            2 * 4 /*or just simple 0*/,
-            8 * 4
-        )
-        checkError("glVertexAttribPointer-1")
-
-        GLES30.glEnableVertexAttribArray(1)
-        checkError("glEnableVertexAttribArray-1")
+//        // texture coord attribute
+//        GLES30.glVertexAttribPointer(
+//            1,
+//            2,
+//            GLES30.GL_FLOAT,
+//            false,
+//            2 * 4 /*or just simple 0*/,
+//            8 * 4
+//        )
+//        checkError("glVertexAttribPointer-1")
+//
+//        GLES30.glEnableVertexAttribArray(1)
+//        checkError("glEnableVertexAttribArray-1")
     }
 
 
