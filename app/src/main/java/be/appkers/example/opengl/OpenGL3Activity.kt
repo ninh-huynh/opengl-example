@@ -57,7 +57,8 @@ class OpenGL3Activity : ComponentActivity(),
     private var rectY = 0f
     private var rectScale = 1f
 
-    private var mySquareSize = -1f
+    // width/height
+    private var surfaceRatio = 0f
 
     // endregion Variables
     // region LifeCycle
@@ -145,6 +146,7 @@ class OpenGL3Activity : ComponentActivity(),
 
     override fun onSurfaceChanged(gl10: GL10?, width: Int, height: Int) {
         GLES30.glViewport(0, 0, width, height)
+        surfaceRatio = width.toFloat() / height
         Log.d("OpenGL3Activity", "onSurfaceChanged: $width, $height")   // 1080, 2400
 
         // OpenGL will stretch what we give it into a square. To avoid this, we have to send the ratio
@@ -162,6 +164,10 @@ class OpenGL3Activity : ComponentActivity(),
             Matrix.orthoM(projectionMatrix, 0, -halfWidth, halfWidth, -halfHeight, halfHeight, -1f, 1f)
             // this is for UI, the y axis from top to bottom
             Matrix.orthoM(projectionMatrix, 0, -halfWidth, halfWidth, halfHeight,-halfHeight, -1f, 1f)
+
+            // We use a virtual coordinate instead of the pixel coordinate. The range is about [0, 1]
+            // the original (0,0) is at the top
+            Matrix.orthoM(projectionMatrix, 0, 0f, 1f, 1f, 0f, -1f, 1f);
         } else {
             val ratio = width.toFloat() / height
             Matrix.orthoM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, -1f, 1f)
@@ -177,12 +183,6 @@ class OpenGL3Activity : ComponentActivity(),
         // Since we requested our OpenGL thread to only render when dirty, we have to tell it to.
         binding.surface.requestRender()
 
-        surfaceWidth = width.toFloat()
-        surfaceHeight = height.toFloat()
-
-        rectX = surfaceWidth / 2f
-        rectY = surfaceHeight / 2f
-        mySquareSize = surfaceWidth / 3f;
     }
 
     private var isSetupVertexBuffer = false
@@ -213,9 +213,9 @@ class OpenGL3Activity : ComponentActivity(),
             val scaleY = bitmapRect.height() * rectScale
 
 
-            Matrix.translateM(modelMatrix, 0, 0f, 0f, 0f)
+            Matrix.translateM(modelMatrix, 0, 0.5f, 0.5f, 0f)
             Matrix.rotateM(modelMatrix, 0, 0f, 0f, 0f, 1f)
-            Matrix.scaleM(modelMatrix, 0, mySquareSize, mySquareSize, 1f)
+            Matrix.scaleM(modelMatrix, 0, 0.3f,  0.3f * surfaceRatio , 1f)
 
             Matrix.translateM(viewMatrix, 0, 0f,0f , 0f)
             Matrix.rotateM(viewMatrix, 0, 0f, 0f, 0f, 1f)
