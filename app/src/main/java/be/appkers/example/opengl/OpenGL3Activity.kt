@@ -154,6 +154,14 @@ class OpenGL3Activity : ComponentActivity(),
 //            Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), height.toFloat(), 0f, -1f, 1f)
             // the 0,0 is at bottom left
             Matrix.orthoM(projectionMatrix, 0, 0f, width.toFloat(), 0f, height.toFloat(), -1f, 1f)
+
+            // by doing this, we can have the original of our viewport at the center
+            val halfWidth = width / 2f
+            val halfHeight = height / 2f
+            // this is for physic, the y axis from bottom to top
+            Matrix.orthoM(projectionMatrix, 0, -halfWidth, halfWidth, -halfHeight, halfHeight, -1f, 1f)
+            // this is for UI, the y axis from top to bottom
+            Matrix.orthoM(projectionMatrix, 0, -halfWidth, halfWidth, halfHeight,-halfHeight, -1f, 1f)
         } else {
             val ratio = width.toFloat() / height
             Matrix.orthoM(projectionMatrix, 0, -ratio, ratio, -1f, 1f, -1f, 1f)
@@ -208,6 +216,10 @@ class OpenGL3Activity : ComponentActivity(),
             Matrix.translateM(modelMatrix, 0, 0f, 0f, 0f)
             Matrix.rotateM(modelMatrix, 0, 0f, 0f, 0f, 1f)
             Matrix.scaleM(modelMatrix, 0, mySquareSize, mySquareSize, 1f)
+
+            Matrix.translateM(viewMatrix, 0, 0f,0f , 0f)
+            Matrix.rotateM(viewMatrix, 0, 0f, 0f, 0f, 1f)
+            Matrix.scaleM(viewMatrix, 0, 1f, 1f, 1f)
 
             // mvp =  project * view * model
             Matrix.multiplyMM(mvpMatrix, 0, viewMatrix, 0, modelMatrix, 0)
